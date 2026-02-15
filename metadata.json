@@ -1,0 +1,7 @@
+{
+  "name": "Google Maps Business Monitor",
+  "description": "A comprehensive reputation and listing management dashboard that tracks phone, hours, and rating changes across Google Maps business profiles, featuring AI-powered review analysis.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
