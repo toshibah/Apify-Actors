@@ -11,6 +11,19 @@ const getAIClient = () => {
   return new GoogleGenAI({ apiKey: process.env.API_KEY });
 };
 
+const isQuotaError = (error: any): boolean => {
+  const msg = error?.message?.toLowerCase() || "";
+  const status = error?.status?.toLowerCase() || "";
+  const code = error?.code || error?.status_code;
+  return (
+    msg.includes('quota') || 
+    msg.includes('429') || 
+    msg.includes('resource_exhausted') ||
+    status.includes('resource_exhausted') ||
+    code === 429
+  );
+};
+
 export const analyzeBusinessPerformance = async (business: BusinessListing) => {
   try {
     const ai = getAIClient();
@@ -28,7 +41,7 @@ export const analyzeBusinessPerformance = async (business: BusinessListing) => {
     return response.text;
   } catch (error: any) {
     console.error("Gemini Analysis Error:", error);
-    if (error?.message?.includes('quota') || error?.message?.includes('429')) {
+    if (isQuotaError(error)) {
       throw new Error("QUOTA_EXCEEDED");
     }
     return "Unable to perform AI analysis at this time.";
@@ -56,7 +69,7 @@ export const generateReviewResponse = async (review: Review, businessName: strin
     return response.text;
   } catch (error: any) {
     console.error("Gemini Review Response Error:", error);
-    if (error?.message?.includes('quota') || error?.message?.includes('429')) {
+    if (isQuotaError(error)) {
       throw new Error("QUOTA_EXCEEDED");
     }
     return "Thank you for your feedback. We appreciate your input.";
@@ -101,7 +114,7 @@ export const getSentimentAnalysis = async (reviews: Review[]) => {
     return JSON.parse(response.text || '{}');
   } catch (error: any) {
     console.error("Gemini Sentiment Analysis Error:", error);
-    if (error?.message?.includes('quota') || error?.message?.includes('429')) {
+    if (isQuotaError(error)) {
       throw new Error("QUOTA_EXCEEDED");
     }
     return null;
@@ -171,7 +184,7 @@ export const discoverNearbyBusinesses = async (location: { lat: number; lng: num
     return JSON.parse(response.text || '[]');
   } catch (error: any) {
     console.error("Scanner Error:", error);
-    if (error?.message?.includes('quota') || error?.message?.includes('429')) {
+    if (isQuotaError(error)) {
       throw new Error("QUOTA_EXCEEDED");
     }
     return [];
@@ -218,7 +231,7 @@ export const searchBusinessOnMaps = async (query: string) => {
     return JSON.parse(response.text || '{}');
   } catch (error: any) {
     console.error("Search Business Error:", error);
-    if (error?.message?.includes('quota') || error?.message?.includes('429')) {
+    if (isQuotaError(error)) {
       throw new Error("QUOTA_EXCEEDED");
     }
     return null;

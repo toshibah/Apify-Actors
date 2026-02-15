@@ -37,16 +37,16 @@ const App: React.FC = () => {
     const saved = localStorage.getItem('theme');
     return saved === 'dark' || (!saved && window.matchMedia('(prefers-color-scheme: dark)').matches);
   });
+  const [hasQuotaError, setHasQuotaError] = useState(false);
 
   // Handle API Key selection flow for resolving 429 quota issues
   const handleOpenKeySelector = async () => {
     if (window.aistudio?.openSelectKey) {
       await window.aistudio.openSelectKey();
       // Assume success and refresh state (or context) if needed
-      // Note: process.env.API_KEY is automatically updated in this environment
       window.location.reload(); 
     } else {
-      alert("API Key selection is only available in the AI Studio execution context. If you are experiencing quota issues locally, ensure you have a valid process.env.API_KEY.");
+      alert("API Key selection is managed by the environment. If you are seeing quota errors, please ensure you have a valid Gemini API key configured.");
     }
   };
 
@@ -73,7 +73,6 @@ const App: React.FC = () => {
         },
         (error) => {
           console.error("Error getting geolocation:", error);
-          // Default to SF if blocked
           setUserLocation({ lat: 37.7749, lng: -122.4194 });
         }
       );
@@ -136,6 +135,17 @@ const App: React.FC = () => {
     }
   };
 
+  // Global listener for quota errors to show recovery UI
+  useEffect(() => {
+    const handleGlobalError = (event: PromiseRejectionEvent) => {
+      if (event.reason?.message === 'QUOTA_EXCEEDED') {
+        setHasQuotaError(true);
+      }
+    };
+    window.addEventListener('unhandledrejection', handleGlobalError);
+    return () => window.removeEventListener('unhandledrejection', handleGlobalError);
+  }, []);
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-slate-50/30 dark:bg-slate-950/30 transition-colors duration-300">
       {showOnboarding && <OnboardingOverlay onComplete={handleCompleteOnboarding} />}
@@ -149,7 +159,7 @@ const App: React.FC = () => {
       )}
 
       {/* Main Header */}
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 px-4 md:px-8 py-4 md:py-5 flex items-center justify-between z-50 shadow-sm">
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 px-4 md:px-8 py-4 md:py-5 flex items-center justify-between z-50 shadow-sm transition-colors duration-300">
         <div className="flex items-center gap-3 md:gap-4">
           <button 
             onClick={() => setIsSidebarOpen(!isSidebarOpen)}
@@ -185,10 +195,9 @@ const App: React.FC = () => {
             </svg>
           </div>
 
-          {/* New API Key Management UI */}
           <button 
             onClick={handleOpenKeySelector}
-            className="p-2 md:p-3 rounded-xl md:rounded-2xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all border border-amber-100 dark:border-amber-900/50 group"
+            className={`p-2 md:p-3 rounded-xl md:rounded-2xl transition-all border group ${hasQuotaError ? 'bg-rose-500 text-white border-rose-600 animate-pulse' : 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/50'}`}
             title="Update API Key (Resolve 429 Quota)"
           >
             <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -245,8 +254,37 @@ const App: React.FC = () => {
           />
         )}
 
-        <main className="flex-1 p-4 md:p-8 lg:p-10 overflow-y-auto custom-scrollbar">
+        <main className="flex-1 p-4 md:p-8 lg:p-10 overflow-y-auto custom-scrollbar transition-colors">
           <div className="max-w-7xl mx-auto space-y-6 md:space-y-10 pb-20">
+            {/* Quota Warning Banner */}
+            {hasQuotaError && (
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-900/50 p-4 rounded-3xl flex flex-col sm:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center text-amber-600 dark:text-amber-400">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-black text-amber-900 dark:text-amber-200 uppercase tracking-tight">API Quota Exhausted</h4>
+                    <p className="text-[11px] font-bold text-amber-800/70 dark:text-amber-300/60 leading-none mt-0.5">Automated features are paused. Switch to your own API key to resume.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setHasQuotaError(false)}
+                    className="px-4 py-2 text-[10px] font-black text-amber-700 dark:text-amber-500 uppercase tracking-widest hover:text-amber-900 transition-colors"
+                  >
+                    Dismiss
+                  </button>
+                  <button 
+                    onClick={handleOpenKeySelector}
+                    className="px-5 py-2.5 bg-amber-600 text-white text-[10px] font-black uppercase tracking-widest rounded-xl hover:bg-amber-500 transition-all shadow-lg shadow-amber-500/20 active:scale-95"
+                  >
+                    Configure Key
+                  </button>
+                </div>
+              </div>
+            )}
+
             <StatsOverview stats={INITIAL_STATS} />
 
             <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 md:gap-10">
@@ -312,7 +350,7 @@ const App: React.FC = () => {
         <div className="w-px h-6 bg-white/5 dark:bg-slate-700/50 mx-1"></div>
         <button 
           onClick={handleOpenKeySelector}
-          className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-[14px] md:rounded-[18px] text-amber-500 hover:bg-amber-500/10 transition-all"
+          className={`w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-[14px] md:rounded-[18px] transition-all ${hasQuotaError ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' : 'text-amber-500 hover:bg-amber-500/10'}`}
         >
           <svg className="w-4 h-4 md:w-5 md:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
         </button>
